@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>webtrio</title>
+  </head>
+  <body>
+    <div id="menu" class="text-white p-10">
+      <label>Config: <input type="file" id="config-file" /></label>
+      <ul id="modes" class="mt-6 flex flex-col gap-2 w-60"></ul>
+      <button
+        id="open-generator"
+        class="mt-6 w-60 px-4 py-2 text-left bg-zinc-800 rounded-lg hover:bg-zinc-700"
+      >
+        Config generator
+      </button>
+    </div>
+    <div id="generator" class="fixed inset-0 overflow-y-auto p-10 text-white" hidden></div>
+    <div id="app" hidden>
+      <canvas></canvas>
+    </div>
+    <div
+      id="end"
+      class="fixed inset-0 flex items-center justify-center bg-black/70 text-white"
+      hidden
+    >
+      <div class="flex flex-col items-center gap-6 p-10 bg-zinc-800 rounded-xl w-80">
+        <h2 id="end-mode" class="text-sm font-bold tracking-widest text-zinc-400 uppercase"></h2>
+        <p id="end-time" class="text-5xl font-bold tabular-nums"></p>
+        <dl id="end-stats" class="grid grid-cols-2 gap-x-8 gap-y-1 w-full"></dl>
+        <div class="flex flex-col gap-2 w-full">
+          <button id="play-again" class="px-4 py-3 text-lg font-bold bg-zinc-600 rounded-lg hover:bg-zinc-500">
+            Play again
+          </button>
+          <button id="to-menu" class="px-4 py-2 bg-zinc-700 rounded-lg hover:bg-zinc-600">
+            Menu
+          </button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

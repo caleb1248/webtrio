@@ -1,0 +1,21 @@
+export enum Pieces {
+  S = 0,
+  Z = 1,
+  J = 2,
+  L = 3,
+  I = 4,
+  T = 5,
+  O = 6,
+}
+
+export const colors = {
+  TRANSPARENT: 0x00000000,
+  [Pieces.S]: 0x80ce52ff,
+  [Pieces.Z]: 0xce5259ff,
+  [Pieces.J]: 0x6652ceff,
+  [Pieces.L]: 0xce8152ff,
+
+  [Pieces.I]: 0x52ceacff,
+  [Pieces.T]: 0xc352ceff,
+  [Pieces.O]: 0xcec552ff,
+};

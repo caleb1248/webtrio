@@ -1,0 +1,21 @@
+{
+  "name": "webtrio",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run ./server.ts",
+    "build": "bun run ./build.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "@types/node": "^26.6.6",
+    "bun-plugin-tailwind": "^0.1.2",
+    "oxfmt": "^0.70.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.2"
+  },
+  "dependencies": {
+    "werift": "^0.26.0"
+  }
+}
