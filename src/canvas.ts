@@ -272,6 +272,60 @@ export function setBoardSize(width: number, height: number, buffer = height) {
   draw();
 }
 
+/** Incoming garbage lines, split by whether they can enter the board yet. */
+let garbage = { waiting: 0, ready: 0 };
+
+/** Sets the incoming garbage meter shown on the following `draw()`. */
+export function setGarbageMeter(waiting: number, ready: number) {
+  garbage = { waiting, ready };
+}
+
+/** Width of the incoming garbage meter, in CSS pixels. */
+const METER_WIDTH = 6;
+
+/** Draws incoming garbage as a bar up the left edge of the board, ready lines at the bottom. */
+function drawGarbageMeter() {
+  const x = originX - METER_WIDTH - 2;
+  const bottom = originY + visibleRows * SQUARE_SIZE;
+  const ready = Math.min(garbage.ready, visibleRows);
+  const waiting = Math.min(garbage.waiting, visibleRows - ready);
+
+  ctx.fillStyle = "#e5484d";
+  ctx.fillRect(x, bottom - ready * SQUARE_SIZE, METER_WIDTH, ready * SQUARE_SIZE);
+  ctx.fillStyle = "#f5a524";
+  ctx.fillRect(
+    x,
+    bottom - (ready + waiting) * SQUARE_SIZE,
+    METER_WIDTH,
+    waiting * SQUARE_SIZE,
+  );
+}
+
+let b2b = { count: 0, surge: 0 };
+
+/** Sets the B2B counter and charged Surge shown on the following `draw()`. */
+export function setB2B(count: number, surge: number) {
+  b2b = { count, surge };
+}
+
+/** Draws the B2B counter and Surge left of the board, below the line clear label. */
+function drawB2B() {
+  if (b2b.count < 1) return;
+  const x = originX - PANEL_GAP;
+  const y = originY + (visibleRows * SQUARE_SIZE) / 2 + 36;
+
+  ctx.textAlign = "right";
+  ctx.fillStyle = "#f5c542";
+  ctx.font = "bold 18px sans-serif";
+  ctx.fillText(`B2B ×${b2b.count}`, x, y);
+  if (b2b.surge > 0) {
+    ctx.fillStyle = "#f5a524";
+    ctx.font = "bold 22px sans-serif";
+    ctx.fillText(`SURGE ${b2b.surge}`, x, y + 28);
+  }
+  ctx.textAlign = "left";
+}
+
 let countdown: { text: string; alpha: number } | null = null;
 
 /** Sets the countdown text shown over the board; null hides it. */
@@ -304,6 +358,8 @@ export function draw() {
   drawPanels();
   drawStats();
   drawClearLabel();
+  drawGarbageMeter();
+  drawB2B();
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < columns; col++) {
       const color = drawBuffer[row * columns + col];

@@ -8,6 +8,6 @@ export interface Mode {
 }
 
 export const MODES: Mode[] = [
-  { name: "40 Lines", lines: 40, countdown: 3 },
-  { name: "Free Play" },
+  { name: '40 Lines', lines: 40, countdown: 3 },
+  { name: 'Zen' },
 ];

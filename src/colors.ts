@@ -8,8 +8,14 @@ export enum Pieces {
   O = 6,
 }
 
+/** Board cell value for garbage lines, which aren't any piece. */
+export const GARBAGE = 7;
+/** What a filled board cell can hold. */
+export type Cell = Pieces | typeof GARBAGE;
+
 export const colors = {
   TRANSPARENT: 0x00000000,
+  [GARBAGE]: 0x6b6b6bff,
   [Pieces.S]: 0x80ce52ff,
   [Pieces.Z]: 0xce5259ff,
   [Pieces.J]: 0x6652ceff,

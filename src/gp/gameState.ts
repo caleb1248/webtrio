@@ -1,9 +1,9 @@
 import { setBoardSize } from "../canvas";
-import type { Pieces } from "../colors";
+import type { Cell, Pieces } from "../colors";
 import type { RoomConfig } from "../room-config";
 import type { Vec2 } from "../types";
 import { spawnPiece } from "./piece";
-import type { PieceOrder } from "./pieceOrder";
+import type { PieceOrder, Rng } from "./pieceOrder";
 import * as pieceOrder from "./pieceOrder";
 
 export interface GameState {
@@ -16,7 +16,7 @@ export interface GameState {
   };
 
   hold: Pieces | null;
-  board: (Pieces | null)[][];
+  board: (Cell | null)[][];
 
   pieceOrder: PieceOrder;
   config: RoomConfig;
@@ -36,13 +36,15 @@ export interface GameStats {
 
 function newPieceOrder(
   bagtype: RoomConfig["game"]["options"]["bagtype"],
+  rng: Rng,
 ): PieceOrder {
-  if (bagtype === "7-bag") return pieceOrder.bag(7);
-  if (bagtype === "14-bag") return pieceOrder.bag(14);
-  return pieceOrder.random();
+  if (bagtype === "7-bag") return pieceOrder.bag(7, rng);
+  if (bagtype === "14-bag") return pieceOrder.bag(14, rng);
+  return pieceOrder.random(rng);
 }
 
-export function newGame(config: RoomConfig): GameState {
+/** @param seed makes the piece order repeatable; random if omitted */
+export function newGame(config: RoomConfig, seed?: number): GameState {
   const { boardwidth, boardheight, bagtype } = config.game.options;
   setBoardSize(boardwidth, boardheight);
 
@@ -57,7 +59,10 @@ export function newGame(config: RoomConfig): GameState {
     board: Array(boardheight)
       .fill(null)
       .map(() => Array(boardwidth).fill(null)),
-    pieceOrder: newPieceOrder(bagtype),
+    pieceOrder: newPieceOrder(
+      bagtype,
+      seed === undefined ? Math.random : pieceOrder.seededRng(seed),
+    ),
     stats: {
       time: 0,
       pieces: 0,

@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "bun run ./server.ts",
+    "dev": "bun run --watch ./server.ts",
     "build": "bun run ./build.ts"
   },
   "devDependencies": {
@@ -16,6 +16,7 @@
     "typescript": "~6.0.2"
   },
   "dependencies": {
+    "preact": "^11.2.0",
     "werift": "^0.26.0"
   }
 }

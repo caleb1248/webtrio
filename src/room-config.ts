@@ -6,76 +6,97 @@
  * shape is right when the rest gets implemented.
  */
 
-export type Bgm =
-  | "RANDOM"
-  | "RANDOMcalm"
-  | "RANDOMbattle"
-  | "kuchu-toshi"
-  | "shikiichi-made-mousukoshi"
-  | "touhoudaiensei"
-  | "asayake-no-taiyou"
-  | "in-sorrow-and-pains"
-  | "honemi-ni-shimiiru-karasukaze"
-  | "inorimichite"
-  | "kaze-no-sanpomichi"
-  | "muscat-to-shiroi-osara"
-  | "natsuzora-to-syukudai"
-  | "success-story"
-  | "kaiser-hige-na-neko"
-  | "akindo"
-  | "philosophy"
-  | "yoru-no-niji"
-  | "shiroi-hyoutan"
-  | "smoke"
-  | "aijin-sanka"
-  | "akai-tsuchi-wo-funde"
-  | "burari-tokyo"
-  | "back-water"
-  | "burning-heart"
-  | "hayate-no-sei"
-  | "ice-eyes"
-  | "ima-koso"
-  | "prism"
-  | "risky-area"
-  | "fuyu-no-jinkoueisei"
-  | "hatsuyuki"
-  | "kansen-gairo"
-  | "chiheisen-wo-koete"
-  | "moyase-toushi-yobisamase-tamashii"
-  | "naraku-heno-abyssmaze"
-  | "samurai-sword"
-  | "super-machine-soul"
-  | "uchuu-5239"
-  | "ultra-super-heros"
-  | "21seiki-no-hitobito"
-  | "haru-wo-machinagara"
-  | "go-go-go-summer"
-  | "sasurai-no-hitoritabi"
-  | "wakana"
-  | "zange-no-ma"
-  | "subarashii-nichijou"
-  | "asphalt"
-  | "madobe-no-hidamari"
-  | "minamoto"
-  | "sora-no-sakura"
-  | "suiu"
-  | "freshherb-wreath-wo-genkan-ni";
+export const BGMS = [
+  "RANDOM",
+  "RANDOMcalm",
+  "RANDOMbattle",
+  "kuchu-toshi",
+  "shikiichi-made-mousukoshi",
+  "touhoudaiensei",
+  "asayake-no-taiyou",
+  "in-sorrow-and-pains",
+  "honemi-ni-shimiiru-karasukaze",
+  "inorimichite",
+  "kaze-no-sanpomichi",
+  "muscat-to-shiroi-osara",
+  "natsuzora-to-syukudai",
+  "success-story",
+  "kaiser-hige-na-neko",
+  "akindo",
+  "philosophy",
+  "yoru-no-niji",
+  "shiroi-hyoutan",
+  "smoke",
+  "aijin-sanka",
+  "akai-tsuchi-wo-funde",
+  "burari-tokyo",
+  "back-water",
+  "burning-heart",
+  "hayate-no-sei",
+  "ice-eyes",
+  "ima-koso",
+  "prism",
+  "risky-area",
+  "fuyu-no-jinkoueisei",
+  "hatsuyuki",
+  "kansen-gairo",
+  "chiheisen-wo-koete",
+  "moyase-toushi-yobisamase-tamashii",
+  "naraku-heno-abyssmaze",
+  "samurai-sword",
+  "super-machine-soul",
+  "uchuu-5239",
+  "ultra-super-heros",
+  "21seiki-no-hitobito",
+  "haru-wo-machinagara",
+  "go-go-go-summer",
+  "sasurai-no-hitoritabi",
+  "wakana",
+  "zange-no-ma",
+  "subarashii-nichijou",
+  "asphalt",
+  "madobe-no-hidamari",
+  "minamoto",
+  "sora-no-sakura",
+  "suiu",
+  "freshherb-wreath-wo-genkan-ni",
+] as const;
+export type Bgm = (typeof BGMS)[number];
 
-export type BagType = "7-bag" | "14-bag" | "classic" | "pairs" | "total mayhem";
+export const BAG_TYPES = [
+  "7-bag",
+  "14-bag",
+  "classic",
+  "pairs",
+  "total mayhem",
+] as const;
+export type BagType = (typeof BAG_TYPES)[number];
 
-export type SpinBonuses =
-  | "t-spins"
-  | "t-spins+"
-  | "all-mini"
-  | "all-mini+"
-  | "all"
-  | "all+"
-  | "mini-only"
-  | "handheld"
-  | "stupid"
-  | "none";
+export const SPIN_BONUSES = [
+  "t-spins",
+  "t-spins+",
+  "all-mini",
+  "all-mini+",
+  "all",
+  "all+",
+  "mini-only",
+  "handheld",
+  "stupid",
+  "none",
+] as const;
+export type SpinBonuses = (typeof SPIN_BONUSES)[number];
 
-export type Kickset = "SRS+" | "SRS" | "SRS-X" | "TETRA-X" | "NRS" | "ARS" | "ASC" | "none";
+export const KICKSETS = [
+  "SRS+",
+  "SRS",
+  "SRS-X",
+  "TETRA-X",
+  "NRS",
+  "ARS",
+  "ASC",
+  "none",
+] as const;
+export type Kickset = (typeof KICKSETS)[number];
 
 export interface RoomMeta {
   /** Name this room will display in the listing as. */
@@ -155,7 +176,7 @@ export interface GameOptions {
   garbagecapmax: number;
   /** Whether to allow users to click boards to manually target them. */
   manual_allowed: boolean;
-  /** Whether to make long Back-to-Back chains become more powerful. */
+  /** Whether long Back-to-Back streaks charge Surge, released when the streak breaks. */
   b2bchaining: boolean;
   /** Whether to allow out-of-bound placements when they clear a line. */
   clutch: boolean;

@@ -3,15 +3,18 @@ import {
   draw,
   drawBuffer,
   rows,
+  setB2B,
   setCountdown,
+  setGarbageMeter,
   setPreviews,
   setStats,
   showClear,
 } from '../canvas';
-import { colors, type Pieces } from '../colors';
+import { colors, GARBAGE, type Cell, type Pieces } from '../colors';
 import type { Mode } from '../modes';
 import { DEFAULT_ROOM_CONFIG, type RoomConfig } from '../room-config';
 import type { Vec2 } from '../types';
+import { ALL_CLEAR_BONUS, baseAttack, comboTables } from './comboTables';
 import { DEFAULT_CONFIG, type Config } from './config';
 import { GAMEPLAY_ACTIONS, keymap, type Action } from './controls';
 import { newGame, type GameState, type GameStats } from './gameState';
@@ -28,6 +31,10 @@ const MAX_CATCHUP = 5;
 const SDF_MAX = 41;
 /** How many times a movement may restart the lock delay. */
 const MAX_LOCK_RESETS = 15;
+/** Displayed B2B count at which Surge starts charging, one line per B2B. */
+const SURGE_AT = 4;
+/** Surge is released as this many separate attacks. */
+const SURGE_SEGMENTS = 3;
 /** Frames "GO" takes to fade out once the countdown ends. */
 const GO_FRAMES = FPS;
 
@@ -38,6 +45,38 @@ export interface Game {
   start(): void;
   stop(): void;
   restart(): void;
+  /** Queues incoming garbage. It enters the board once it has travelled. */
+  receiveGarbage(lines: number): void;
+  /** The board with the current piece drawn in, for showing to other players. */
+  snapshot(): BoardSnapshot;
+}
+
+/**
+ * A board as other players see it: `cells` holds `width` characters per row,
+ * bottom row first, with "." for empty and the cell's number otherwise.
+ */
+export interface BoardSnapshot {
+  width: number;
+  cells: string;
+}
+
+/** Hooks for a game played against others. Retry is disabled and exit forfeits. */
+export interface NetPlay {
+  /** Seeds the piece order, so every player gets the same pieces. */
+  seed: number;
+  /** Called with the garbage an attack sends, after cancelling incoming garbage. */
+  onAttack(lines: number): void;
+  /** Called once when the player tops out or forfeits. */
+  onTopOut(): void;
+}
+
+/** Garbage on its way to this board. */
+interface IncomingGarbage {
+  lines: number;
+  /** Column left open in every line of this attack. */
+  hole: number;
+  /** Play frame from which it may enter the board. */
+  readyFrame: number;
 }
 
 export interface GameEvents {
@@ -52,6 +91,7 @@ export function createGame(
   config: Config = DEFAULT_CONFIG,
   mode: Mode = { name: 'Endless' },
   events: GameEvents = {},
+  net?: NetPlay,
 ): Game {
   const keys = keymap(GAMEPLAY_ACTIONS, config.controls);
   const options = room.game.options;
@@ -79,6 +119,13 @@ export function createGame(
   let countdownFrames = (mode.countdown ?? 0) * FPS;
   /** Frames left in the "GO" fade out. */
   let goFrames = 0;
+  /** Frames played since the countdown ended. */
+  let playFrames = 0;
+  /** Clears in a row before the current one, -1 when there's no combo. */
+  let combo = -1;
+  /** Difficult clears (quads and spins) in a row, without an easy clear between. */
+  let b2b = 0;
+  let incoming: IncomingGarbage[] = [];
   /** Gameplay actions whose keys are down, pressed when the countdown ends. */
   const heldActions = new Set<Action>();
 
@@ -91,7 +138,7 @@ export function createGame(
   let arrProgress = 0;
 
   function init(): GameState {
-    const fresh = newGame(room);
+    const fresh = newGame(room, net?.seed);
 
     // newGame spawns before the queue has been filled, so top the queue up and
     // spawn again to get a real piece into play
@@ -171,9 +218,15 @@ export function createGame(
     if (
       !fits(state.current.piece, state.current.center, state.current.rotation)
     ) {
-      over = true;
+      topOut();
     }
     resetPieceTimers();
+  }
+
+  function topOut() {
+    if (over) return;
+    over = true;
+    net?.onTopOut();
   }
 
   function hardDrop() {
@@ -201,7 +254,13 @@ export function createGame(
       state.board[y]![x] = piece;
     }
 
-    const clear = clearText(clearLines());
+    const lines = clearLines();
+    const clear = clearText(lines);
+    if (lines > 0) attack(lines, spin);
+    else {
+      combo = -1;
+      takeGarbage();
+    }
     if (clear !== '' || spin !== null)
       showClear(
         clear,
@@ -226,8 +285,98 @@ export function createGame(
     if (
       !fits(state.current.piece, state.current.center, state.current.rotation)
     )
-      over = true;
+      topOut();
     resetPieceTimers();
+  }
+
+  /** Works out the garbage a clear sends, cancels incoming garbage with it, and sends the rest. */
+  function attack(lines: number, spin: ReturnType<typeof detectSpin>) {
+    combo++;
+    let surge = 0;
+    if (lines >= 4 || spin !== null) b2b++;
+    else {
+      surge = surgeLines();
+      b2b = 0;
+    }
+
+    // a B2B streak adds a line to every attack after the first difficult clear
+    const base = baseAttack(lines, spin) + (b2b >= 2 ? 1 : 0);
+    let sent = comboTables.multiplier(base, combo);
+    const allClear = state.board.every((row) => row.every((cell) => cell === null));
+    if (allClear) sent += ALL_CLEAR_BONUS;
+    sent = Math.floor(sent * options.garbagemultiplier);
+    send(sent);
+
+    // breaking the streak releases Surge as separate attacks, the first ones
+    // taking the remainder, e.g. 8 lines is 3, 3, 2
+    for (let i = 0; i < SURGE_SEGMENTS; i++) {
+      const segment =
+        Math.floor(surge / SURGE_SEGMENTS) + (i < surge % SURGE_SEGMENTS ? 1 : 0);
+      send(segment);
+    }
+  }
+
+  /** Lines of Surge charged by the current B2B streak. */
+  function surgeLines(): number {
+    // the displayed B2B count is one less than the streak, since the first
+    // difficult clear doesn't count as back-to-back
+    const shown = b2b - 1;
+    return options.b2bchaining && shown >= SURGE_AT ? shown : 0;
+  }
+
+  /** Cancels incoming garbage with an attack, then sends what's left. */
+  function send(lines: number) {
+    while (lines > 0 && incoming.length > 0) {
+      const cancelled = Math.min(lines, incoming[0]!.lines);
+      lines -= cancelled;
+      incoming[0]!.lines -= cancelled;
+      if (incoming[0]!.lines === 0) incoming.shift();
+    }
+    if (lines > 0) net?.onAttack(lines);
+  }
+
+  /** Raises garbage that has finished travelling into the board, up to the garbage cap. */
+  function takeGarbage() {
+    let capacity = options.garbagecap;
+    while (capacity > 0 && incoming.length > 0 && incoming[0]!.readyFrame <= playFrames) {
+      const entry = incoming[0]!;
+      const amount = Math.min(entry.lines, capacity);
+      for (let i = 0; i < amount; i++) {
+        const row: (Cell | null)[] = Array(columns).fill(GARBAGE);
+        row[entry.hole] = null;
+        state.board.unshift(row);
+        // blocks pushed off the top of the playfield end the game
+        if (state.board.pop()!.some((cell) => cell !== null)) topOut();
+      }
+      entry.lines -= amount;
+      capacity -= amount;
+      if (entry.lines === 0) incoming.shift();
+    }
+  }
+
+  function receiveGarbage(lines: number) {
+    if (over || lines <= 0) return;
+    incoming.push({
+      lines,
+      hole: Math.floor(Math.random() * columns),
+      readyFrame: playFrames + options.garbagespeed,
+    });
+  }
+
+  function snapshot(): BoardSnapshot {
+    const grid = state.board.map((row) => row.slice());
+    if (!over) {
+      const { piece, center, rotation } = state.current;
+      for (const [x, y] of getSquaresTaken(piece, { x: center[0], y: center[1] }, rotation)) {
+        if (grid[y]) grid[y]![x] = piece;
+      }
+    }
+    // empty rows at the top don't need sending
+    while (grid.length > 0 && grid[grid.length - 1]!.every((cell) => cell === null)) grid.pop();
+    const cells = grid
+      .map((row) => row.map((cell) => (cell === null ? '.' : String(cell))).join(''))
+      .join('');
+    return { width: columns, cells };
   }
 
   function clearLines(): number {
@@ -290,10 +439,17 @@ export function createGame(
    * stays quick under low gravity.
    */
   function chargeGravity() {
+    const g = gravity();
     const cellsPerSecond = softDropping
-      ? Math.max(options.g, 1) * handling.sdf
-      : Math.max(options.g, 0);
+      ? Math.max(g, 1) * handling.sdf
+      : Math.max(g, 0);
     gravityProgress += cellsPerSecond / FPS;
+  }
+
+  /** Current gravity: the starting gravity, increasing every second once the margin time has passed. */
+  function gravity(): number {
+    const secondsIncreasing = Math.max(playFrames - options.gmargin, 0) / FPS;
+    return options.g + options.gincrease * secondsIncreasing;
   }
 
   /** Spends whole cells of banked gravity, moving the piece down. */
@@ -325,6 +481,7 @@ export function createGame(
       return;
     }
     if (goFrames > 0) goFrames--;
+    playFrames++;
 
     state.stats.time += FRAME_MS;
     state.stats.pps =
@@ -371,6 +528,11 @@ export function createGame(
       state.queue.slice(0, options.nextcount).map((piece) => preview(piece)),
     );
     setStats(state.stats);
+    setB2B(b2b - 1, surgeLines());
+    const ready = incoming.filter((entry) => entry.readyFrame <= playFrames);
+    const total = (entries: IncomingGarbage[]) =>
+      entries.reduce((sum, entry) => sum + entry.lines, 0);
+    setGarbageMeter(total(incoming) - total(ready), total(ready));
     if (countdownFrames > 0)
       setCountdown(String(Math.ceil(countdownFrames / FPS)));
     else if (goFrames > 0) setCountdown('GO', goFrames / GO_FRAMES);
@@ -482,10 +644,14 @@ export function createGame(
     event.preventDefault();
 
     if (action === 'retry') {
-      restart();
+      if (!net) restart();
       return;
     }
     if (action === 'exit') {
+      if (net) {
+        topOut();
+        return;
+      }
       stop();
       events.onExit?.();
       return;
@@ -542,6 +708,10 @@ export function createGame(
     accumulator = 0;
     lastTime = performance.now();
     resetPieceTimers();
+    playFrames = 0;
+    combo = -1;
+    b2b = 0;
+    incoming = [];
   }
 
   return {
@@ -554,5 +724,7 @@ export function createGame(
     start,
     stop,
     restart,
+    receiveGarbage,
+    snapshot,
   };
 }
